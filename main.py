@@ -37,7 +37,7 @@ class Game:
 		self.events = pygame.event.get()
 		# game things
 		self.font = pygame.font.Font('fonts/roboto/Roboto-Light.ttf', 120)
-		self.font_small = pygame.font.Font('fonts/roboto/Roboto-Light.ttf', 30)
+		self.font_small = pygame.font.Font('fonts/roboto/Roboto-Light.ttf', 50)
 		self.bitmap = Bitmap(*WIN_SIZE)
 		self.draw_init_msg()
 		self.set_colors = (
@@ -84,28 +84,31 @@ class Game:
 			self.txt_pos = self.txt_surf.get_rect(topleft=(WIN_SIZE[0], 150 / 2 - self.txt_surf.get_height() / 2))
 		elif value == 2:
 			self.text = self.wrapped_text()
-			print(self.text)
 			self.txt_surf = self.multiline_render()
 			self.txt_pos = self.txt_surf.get_rect(topleft=(0, WIN_SIZE[1]))
 		elif value == 3:
 			raise NotImplementedError('Maze is not yet implemented')
 
 	def wrapped_text(self):
+		max_chars = 8
+		allow_multiples_words = False
 		text = ['']
 		for elem in self.text.split(' '):
-			if len(text[-1] + elem) < 10:
+			if len(text[-1] + elem) < max_chars and allow_multiples_words:
 				text[-1] = text[-1] + ' ' + elem
 			else:
 				i = 0
-				while len(elem[i*10::]) > 10:
-					text.append(elem[i*10:i*10+10:])
+				while len(elem[i*max_chars::]) > max_chars:
+					text.append(elem[i*max_chars:i*max_chars+max_chars:] + '-')
+					i += 1
+				text.append(elem[i*max_chars:i*max_chars+max_chars:])
 		return '\n'.join(text)
 
 	def multiline_render(self):
 		img = pygame.Surface((0, 0))
 		for txt in self.text.split('\n'):
 			surf = self.font_small.render(txt, False, (255, 255, 255))
-			new_img = pygame.Surface((img.get_height() + surf.get_height(), max(img.get_width(), surf.get_width())))
+			new_img = pygame.Surface((max(img.get_width(), surf.get_width()), img.get_height() + surf.get_height()))
 			new_img.blit(img, (0, 0))
 			new_img.blit(surf, (0, img.get_height()))
 			img = new_img
@@ -188,7 +191,12 @@ class Game:
 						self.target = 500
 						self.game_state = 0
 					elif event.key == pygame.K_e:
-						self.text = 'TODO : explain graphics'
+						self.text = '''
+each time something is drawn on screen,
+the colors are inverted where there are colors.
+thisisaverylongword
+the movment gives the illusion of shapes
+'''
 						self.game_state = 2
 			self.update()
 			self.draw()
