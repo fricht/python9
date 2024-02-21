@@ -11,6 +11,8 @@ DOUBLE_WIN_SIZE = tuple(map(lambda x: x * 4, WIN_SIZE))
 
 
 class MazeGame:
+	cell_size = 8
+
 	def __init__(self, x=35, y=35):
 		# for each cell, a 2-bit int
 		# first bit : bottom wall
@@ -24,19 +26,21 @@ class MazeGame:
 		#              v
 		self.map = [[0b11 for _ in range(y)] for _ in range(x)]
 		self.x, self.y = x, y
+		self.depth_first_gen()
 		self.image_cache = self.gen_layout()
 
 	def gen_layout(self):
-		img = pygame.Surface((self.x * 10, self.y * 10))
+		img = pygame.Surface((self.x * self.cell_size + 1, self.y * self.cell_size + 1))
 		pygame.draw.lines(img, (255, 255, 255), False, [(0, img.get_height()), (0, 0), (img.get_width(), 0)])
 		for x in range(self.x):
 			for y in range(self.y):
 				# bottom
 				if self.map[x][y] & 0b01:
-					pygame.draw.line(img, (255, 255, 255), (x * 10 + 10, y * 10 + 10), (x * 10, y * 10 + 10))
+					pygame.draw.line(img, (255, 255, 255), (x * self.cell_size + self.cell_size, y * self.cell_size + self.cell_size), (x * self.cell_size, y * self.cell_size + self.cell_size))
 				# side
 				if self.map[x][y] & 0b10:
-					pygame.draw.line(img, (255, 255, 255), (x * 10 + 10, y * 10 + 10), (x * 10 + 10, y * 10))
+					pygame.draw.line(img, (255, 255, 255), (x * self.cell_size + self.cell_size, y * self.cell_size + self.cell_size), (x * self.cell_size + self.cell_size, y * self.cell_size))
+		return img
 
 	def depth_first_gen(self):
 		arr_sum = lambda x, y: [x[0] + y[0], x[1] + y[1]]
@@ -46,13 +50,13 @@ class MazeGame:
 			moves = [(0, 1), (0, -1), (1, 0), (-1, 0)]
 			# exclude out of bounds
 			if stack[-1][0] == 0:
-				moves.remove((0, -1))
-			elif stack[-1][0] == self.x - 1:
-				moves.remove((0, 1))
-			if stack[-1][1] == 0:
 				moves.remove((-1, 0))
-			elif stack[-1][1] == self.y - 1:
+			elif stack[-1][0] == self.x - 1:
 				moves.remove((1, 0))
+			if stack[-1][1] == 0:
+				moves.remove((0, -1))
+			elif stack[-1][1] == self.y - 1:
+				moves.remove((0, 1))
 			# exclude already visited cells
 			i = 0
 			while i < len(moves):
@@ -119,14 +123,14 @@ class Game:
 		self._game_state = 0
 		# 0 for shuffling
 		self.n = 0
-		self.target = 600
+		self.target = 600  # 600 here (decrease for faster debug)
 		# 1 for text displaying
 		# 2 for star wars text
 		self.text = ''
 		self.txt_pos = pygame.Rect(0, 0, 0, 0)
 		self.txt_surf = pygame.Surface((0, 0))
 		# 3 for in game
-		self.game = MazeGame()
+		self.game = None
 
 	def draw_init_msg(self):
 		img = pygame.Surface(WIN_SIZE)
@@ -153,7 +157,7 @@ class Game:
 			self.txt_surf = self.multiline_render()
 			self.txt_pos = self.txt_surf.get_rect(topleft=(0, WIN_SIZE[1]))
 		elif value == 3:
-			raise NotImplementedError('Maze is not yet implemented')
+			self.game = MazeGame()
 
 	def wrapped_text(self):
 		max_chars = 8
@@ -222,9 +226,14 @@ class Game:
 		if self.txt_pos.bottom < 0:
 			self.txt_pos.top = WIN_SIZE[1]
 
+	def update_maze(self):
+		a = pygame.Surface((200, 150))
+		a.blit(self.game.image_cache, (0, 0))
+		self.bitmap = Bitmap.image_to_bitmap(a)
+
 	def update(self):
 		# the update wrapper
-		[self.draw_random_line, self.draw_text, self.star_wars_text][self.game_state]()
+		[self.draw_random_line, self.draw_text, self.star_wars_text, self.update_maze][self.game_state]()
 
 	def draw(self):
 		self.program['bitmap'] = array(
@@ -264,6 +273,8 @@ thisisaverylongword
 the movment gives the illusion of shapes
 '''
 						self.game_state = 2
+					elif event.key == pygame.K_RETURN:
+						self.game_state = 3
 			self.update()
 			self.draw()
 			pygame.display.flip()
