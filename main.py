@@ -4,6 +4,7 @@ from array import array
 import random
 import sys
 from bitmap import *
+import math
 
 
 WIN_SIZE = (200, 150)
@@ -11,10 +12,106 @@ DOUBLE_WIN_SIZE = tuple(map(lambda x: x * 4, WIN_SIZE))
 
 
 class MazeGame:
-	pass
+	cell_size = 15
+
+	def __init__(self, x=35, y=35):
+		# for each cell, a 2-bit int
+		# first bit : bottom wall
+		# second bit : right bit
+		#
+		# +   |
+		#     | 1
+		# ----+
+		#  0
+		#              | here all walls are set
+		#              v
+		self.map = [[0b11 for _ in range(y)] for _ in range(x)]
+		self.x, self.y = x, y
+		self.depth_first_gen()
+		self.image_cache = self.gen_layout()
+		# player
+		self.pos = [0, 0]
+
+	def gen_layout(self):
+		img = pygame.Surface((self.x * self.cell_size + 1, self.y * self.cell_size + 1))
+		pygame.draw.lines(img, (255, 255, 255), False, [(0, img.get_height()), (0, 0), (img.get_width(), 0)], 2)
+		for x in range(self.x):
+			for y in range(self.y):
+				# bottom
+				if self.map[x][y] & 0b01:
+					pygame.draw.line(img, (255, 255, 255), (x * self.cell_size + self.cell_size, y * self.cell_size + self.cell_size), (x * self.cell_size, y * self.cell_size + self.cell_size), 2)
+				# side
+				if self.map[x][y] & 0b10:
+					pygame.draw.line(img, (255, 255, 255), (x * self.cell_size + self.cell_size, y * self.cell_size + self.cell_size), (x * self.cell_size + self.cell_size, y * self.cell_size), 2)
+		# draw end
+		pygame.draw.rect(img, (255, 255, 255), pygame.Rect((self.x - 1) * self.cell_size + 2, (self.y - 1) * self.cell_size + 2, self.cell_size - 4, self.cell_size - 4))
+		return img
+
+	def depth_first_gen(self):
+		arr_sum = lambda x, y: [x[0] + y[0], x[1] + y[1]]
+		stack = [[random.randint(0, self.x - 1), random.randint(0, self.y - 1)]]
+		visited = []
+		while stack:
+			moves = [(0, 1), (0, -1), (1, 0), (-1, 0)]
+			# exclude out of bounds
+			if stack[-1][0] == 0:
+				moves.remove((-1, 0))
+			elif stack[-1][0] == self.x - 1:
+				moves.remove((1, 0))
+			if stack[-1][1] == 0:
+				moves.remove((0, -1))
+			elif stack[-1][1] == self.y - 1:
+				moves.remove((0, 1))
+			# exclude already visited cells
+			i = 0
+			while i < len(moves):
+				if arr_sum(stack[-1], moves[i]) in stack + visited:
+					moves.pop(i)
+				else:
+					i += 1
+			# 'archive' cell if no moves possibles
+			if not moves:
+				visited.append(stack.pop(-1))
+			# apply move
+			else:
+				move = random.choice(moves)
+				new_place = arr_sum(stack[-1], move)
+				# remove wall
+				if move[0] == 1:
+					self.map[stack[-1][0]][stack[-1][1]] &= 0b01
+				elif move[1] == 1:
+					self.map[stack[-1][0]][stack[-1][1]] &= 0b10
+				elif move[0] == -1:
+					self.map[new_place[0]][new_place[1]] &= 0b01
+				elif move[1] == -1:
+					self.map[new_place[0]][new_place[1]] &= 0b10
+				# add to stack
+				stack.append(new_place)
+
+	def move(self, move):
+		moved = False
+		if move[0] == 1 and self.map[self.pos[0]][self.pos[1]] & 0b10 == 0:
+			self.pos[0] += 1
+			moved = True
+		elif move[1] == 1 and self.map[self.pos[0]][self.pos[1]] & 0b01 == 0:
+			self.pos[1] += 1
+			moved = True
+		elif move[0] == -1 and self.map[self.pos[0] - 1][self.pos[1]] & 0b10 == 0 and self.pos[0] > 0:
+			self.pos[0] -= 1
+			moved = True
+		elif move[1] == -1 and self.map[self.pos[0]][self.pos[1] - 1] & 0b01 == 0 and self.pos[1] > 0:
+			self.pos[1] -= 1
+			moved = True
+		if not moved:
+			return None
+		if self.pos == [self.x - 1, self.y - 1]:
+			return True
+		return False
 
 
 class Game:
+	speed = 0.1
+
 	def __init__(self):
 		self.screen = pygame.display.set_mode(DOUBLE_WIN_SIZE, pygame.OPENGL | pygame.DOUBLEBUF)
 		# openGL things
@@ -53,14 +150,17 @@ class Game:
 		self._game_state = 0
 		# 0 for shuffling
 		self.n = 0
-		self.target = 600
+		self.target = 600  # 600 here (decrease for faster debug)
 		# 1 for text displaying
 		# 2 for star wars text
 		self.text = ''
 		self.txt_pos = pygame.Rect(0, 0, 0, 0)
 		self.txt_surf = pygame.Surface((0, 0))
 		# 3 for in game
-		self.game = MazeGame()
+		self.game = None
+		self.key_buffer = []
+		self.pos = [0, 0]
+		self.moves_count = 0
 
 	def draw_init_msg(self):
 		img = pygame.Surface(WIN_SIZE)
@@ -87,7 +187,9 @@ class Game:
 			self.txt_surf = self.multiline_render()
 			self.txt_pos = self.txt_surf.get_rect(topleft=(0, WIN_SIZE[1]))
 		elif value == 3:
-			raise NotImplementedError('Maze is not yet implemented')
+			self.pos = [-1, -1]
+			self.moves_count = 0
+			self.game = MazeGame(28, 25)
 
 	def wrapped_text(self):
 		max_chars = 8
@@ -126,6 +228,9 @@ class Game:
 			data = f.read()
 		return data
 
+	def move_towards(self, x, target):
+		return x + math.copysign(min(abs(x - target), self.speed), target - x)
+
 	def draw_random_line(self):
 		img = pygame.Surface(WIN_SIZE)
 		pygame.draw.line(
@@ -156,9 +261,30 @@ class Game:
 		if self.txt_pos.bottom < 0:
 			self.txt_pos.top = WIN_SIZE[1]
 
+	def update_maze(self):
+		if self.pos == self.game.pos:
+			if self.key_buffer:
+				action = self.game.move(self.key_buffer.pop(0))
+				if action is not None:
+					self.moves_count += 1
+				if action:
+					self.text = 'Well Done !  solved in %i moves' % self.moves_count
+					self.game_state = 1
+		else:
+			# move towards
+			self.pos = [self.move_towards(self.pos[0], self.game.pos[0]), self.move_towards(self.pos[1], self.game.pos[1])]
+			# draw
+			a = pygame.Surface((200, 150))
+			a.blit(self.game.image_cache, (
+				-self.pos[0] * MazeGame.cell_size + WIN_SIZE[0] / 2 - MazeGame.cell_size / 2,
+				-self.pos[1] * MazeGame.cell_size + WIN_SIZE[1] / 2 - MazeGame.cell_size / 2
+			))
+			pygame.draw.rect(a, (255, 255, 255), pygame.Rect(WIN_SIZE[0] / 2 - 3, WIN_SIZE[1] / 2 - 3, 7, 7))
+			self.bitmap.invert_mask(Bitmap.image_to_bitmap(a))
+
 	def update(self):
 		# the update wrapper
-		[self.draw_random_line, self.draw_text, self.star_wars_text][self.game_state]()
+		[self.draw_random_line, self.draw_text, self.star_wars_text, self.update_maze][self.game_state]()
 
 	def draw(self):
 		self.program['bitmap'] = array(
@@ -177,27 +303,42 @@ class Game:
 				if event.type == pygame.QUIT:
 					pygame.quit()
 					sys.exit()
-				if event.type == pygame.KEYDOWN and event.key == pygame.K_c:
-					# cycles through colors
-					self.current_color = (self.current_color + 1) % len(self.set_colors)
-				if event.type == pygame.KEYDOWN and self.game_state in {1, 2}:
-					if event.key == pygame.K_ESCAPE:
-						self.text = 'HARDER MAZE  press enter to play -- press h to get help'
-						self.game_state = 1
-					elif event.key == pygame.K_h:
-						self.text = 'play with arrows <> enter = play <> h = help <> c = change colors <> s = shuffle screen <> e = explanations of the graphics'
-						self.game_state = 1
-					elif event.key == pygame.K_s:
-						self.target = 500
-						self.game_state = 0
-					elif event.key == pygame.K_e:
-						self.text = '''
+				if event.type == pygame.KEYDOWN:
+					if event.key == pygame.K_c:
+						# cycles through colors
+						self.current_color = (self.current_color + 1) % len(self.set_colors)
+					elif self.game_state in {1, 2}:
+						if event.key == pygame.K_ESCAPE:
+							self.text = 'HARDER MAZE  press enter to play -- press h to get help'
+							self.game_state = 1
+						elif event.key == pygame.K_h:
+							self.text = 'play with arrows <> enter = play <> h = help <> c = change colors <> s = shuffle screen <> e = explanations of the graphics'
+							self.game_state = 1
+						elif event.key == pygame.K_s:
+							self.target = 500
+							self.game_state = 0
+						elif event.key == pygame.K_e:
+							self.text = '''
 each time something is drawn on screen,
 the colors are inverted where there are colors.
 thisisaverylongword
 the movment gives the illusion of shapes
 '''
-						self.game_state = 2
+							self.game_state = 2
+						elif event.key == pygame.K_RETURN:
+							self.game_state = 3
+					elif self.game_state == 3:
+						if event.key == pygame.K_ESCAPE:
+							self.text = 'HARDER MAZE  press enter to play -- press h to get help'
+							self.game_state = 1
+						elif event.key == pygame.K_UP:
+							self.key_buffer.append([0, -1])
+						elif event.key == pygame.K_DOWN:
+							self.key_buffer.append([0, 1])
+						elif event.key == pygame.K_LEFT:
+							self.key_buffer.append([-1, 0])
+						elif event.key == pygame.K_RIGHT:
+							self.key_buffer.append([1, 0])
 			self.update()
 			self.draw()
 			pygame.display.flip()
