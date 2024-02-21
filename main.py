@@ -11,7 +11,73 @@ DOUBLE_WIN_SIZE = tuple(map(lambda x: x * 4, WIN_SIZE))
 
 
 class MazeGame:
-	pass
+	def __init__(self, x=35, y=35):
+		# for each cell, a 2-bit int
+		# first bit : bottom wall
+		# second bit : right bit
+		#
+		# +   |
+		#     | 1
+		# ----+
+		#  0
+		#              | here all walls are set
+		#              v
+		self.map = [[0b11 for _ in range(y)] for _ in range(x)]
+		self.x, self.y = x, y
+		self.image_cache = self.gen_layout()
+
+	def gen_layout(self):
+		img = pygame.Surface((self.x * 10, self.y * 10))
+		pygame.draw.lines(img, (255, 255, 255), False, [(0, img.get_height()), (0, 0), (img.get_width(), 0)])
+		for x in range(self.x):
+			for y in range(self.y):
+				# bottom
+				if self.map[x][y] & 0b01:
+					pygame.draw.line(img, (255, 255, 255), (x * 10 + 10, y * 10 + 10), (x * 10, y * 10 + 10))
+				# side
+				if self.map[x][y] & 0b10:
+					pygame.draw.line(img, (255, 255, 255), (x * 10 + 10, y * 10 + 10), (x * 10 + 10, y * 10))
+
+	def depth_first_gen(self):
+		arr_sum = lambda x, y: [x[0] + y[0], x[1] + y[1]]
+		stack = [[random.randint(0, self.x - 1), random.randint(0, self.y - 1)]]
+		visited = []
+		while stack:
+			moves = [(0, 1), (0, -1), (1, 0), (-1, 0)]
+			# exclude out of bounds
+			if stack[-1][0] == 0:
+				moves.remove((0, -1))
+			elif stack[-1][0] == self.x - 1:
+				moves.remove((0, 1))
+			if stack[-1][1] == 0:
+				moves.remove((-1, 0))
+			elif stack[-1][1] == self.y - 1:
+				moves.remove((1, 0))
+			# exclude already visited cells
+			i = 0
+			while i < len(moves):
+				if arr_sum(stack[-1], moves[i]) in stack + visited:
+					moves.pop(i)
+				else:
+					i += 1
+			# 'archive' cell if no moves possibles
+			if not moves:
+				visited.append(stack.pop(-1))
+			# apply move
+			else:
+				move = random.choice(moves)
+				new_place = arr_sum(stack[-1], move)
+				# remove wall
+				if move[0] == 1:
+					self.map[stack[-1][0]][stack[-1][1]] &= 0b01
+				elif move[1] == 1:
+					self.map[stack[-1][0]][stack[-1][1]] &= 0b10
+				elif move[0] == -1:
+					self.map[new_place[0]][new_place[1]] &= 0b01
+				elif move[1] == -1:
+					self.map[new_place[0]][new_place[1]] &= 0b10
+				# add to stack
+				stack.append(new_place)
 
 
 class Game:
