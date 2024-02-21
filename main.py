@@ -5,6 +5,8 @@ import random
 import sys
 from bitmap import *
 import math
+from cryptography.fernet import Fernet
+import base64
 
 
 WIN_SIZE = (200, 150)
@@ -20,9 +22,9 @@ class MazeGame:
 		# second bit : right bit
 		#
 		# +   |
-		#     | 1
+		#     | bit 1
 		# ----+
-		#  0
+		# bit 0
 		#              | here all walls are set
 		#              v
 		self.map = [[0b11 for _ in range(y)] for _ in range(x)]
@@ -132,6 +134,12 @@ class Game:
 		# pygame things
 		self.clock = pygame.time.Clock()
 		self.events = pygame.event.get()
+		# saving things
+		# random encrypt key -----------------,
+		# saving is not really secured        |
+		# it just discourage                  v
+		self.cipher = Fernet(b'cUvENNHqvNIvZrg-Tdb6b0B83N9KvKFRbLhF8HtgFiw=')
+		self.best_score = self.load_best_score()
 		# game things
 		self.font = pygame.font.Font('fonts/roboto/Roboto-Light.ttf', 120)
 		self.font_small = pygame.font.Font('fonts/roboto/Roboto-Light.ttf', 50)
@@ -162,6 +170,25 @@ class Game:
 		self.pos = [0, 0]
 		self.moves_count = 0
 
+	def load_best_score(self):
+		score = -1
+		try:
+			with open('score.data', 'r') as f:
+				data = f.read()
+			score = int.from_bytes(self.cipher.decrypt(base64.b64decode(data)), 'big')
+		except Exception as e:
+			print('can\'t load data : %s' % e)
+		return score
+
+	def save_best_score(self):
+		if self.best_score > 0:
+			try:
+				data = self.cipher.encrypt(self.best_score.to_bytes((self.best_score.bit_length() + 7) // 8, 'big'))
+				with open('score.data', 'w') as f:
+					f.write(base64.b64encode(data).decode('utf-8'))
+			except Exception as e:
+				print('error saving best score (%i) : %s' % (self.best_score, e))
+
 	def draw_init_msg(self):
 		img = pygame.Surface(WIN_SIZE)
 		surf = pygame.font.Font('fonts/roboto/Roboto-Light.ttf', 80).render('WAIT!', False, (255, 255, 255))
@@ -187,6 +214,7 @@ class Game:
 			self.txt_surf = self.multiline_render()
 			self.txt_pos = self.txt_surf.get_rect(topleft=(0, WIN_SIZE[1]))
 		elif value == 3:
+			self.key_buffer = []
 			self.pos = [-1, -1]
 			self.moves_count = 0
 			self.game = MazeGame(28, 25)
@@ -268,7 +296,13 @@ class Game:
 				if action is not None:
 					self.moves_count += 1
 				if action:
+					if self.best_score == -1:
+						self.best_score = self.moves_count
+					else:
+						self.best_score = min(self.best_score, self.moves_count)
 					self.text = 'Well Done !  solved in %i moves' % self.moves_count
+					if self.best_score > 0:
+						self.text += ', best score : %i' % self.best_score
 					self.game_state = 1
 		else:
 			# move towards
@@ -301,6 +335,7 @@ class Game:
 			self.events = pygame.event.get()
 			for event in self.events:
 				if event.type == pygame.QUIT:
+					self.save_best_score()
 					pygame.quit()
 					sys.exit()
 				if event.type == pygame.KEYDOWN:
@@ -312,11 +347,17 @@ class Game:
 							self.text = 'HARDER MAZE  press enter to play -- press h to get help'
 							self.game_state = 1
 						elif event.key == pygame.K_h:
-							self.text = 'play with arrows <> enter = play <> h = help <> c = change colors <> s = shuffle screen <> e = explanations of the graphics'
+							self.text = 'play with arrows <> escape tu return to menu <> enter = play <> h = help <> c = change colors <> s = shuffle screen <> e = explanations of the graphics <> x = best score'
 							self.game_state = 1
 						elif event.key == pygame.K_s:
 							self.target = 500
 							self.game_state = 0
+						elif event.key == pygame.K_x:
+							if self.best_score > 0:
+								self.text = 'Best score : %i' % self.best_score
+							else:
+								self.text = 'No best score yet'
+							self.game_state = 1
 						elif event.key == pygame.K_e:
 							self.text = '''
 each time something is drawn on screen,
