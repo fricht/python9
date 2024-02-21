@@ -5,34 +5,35 @@ from line_profiler_pycharm import profile
 import struct
 
 
-def load_compute():
-	with open('shaders/compute.glsl', 'r') as f:
-		data = f.read()
-	return data
+# compute shaders not working
+# def load_compute():
+# 	with open('shaders/compute.glsl', 'r') as f:
+# 		data = f.read()
+# 	return data
 
 
-ctx = mgl.create_standalone_context()
-compute_shader = ctx.compute_shader(load_compute())
-data_buffer = ctx.buffer(np.zeros(shape=(200 * 150, ), dtype=np.uint32))
-data_buffer.bind_to_storage_buffer(0)
-output_buffer = ctx.buffer(np.zeros(shape=(938, ), dtype=np.uint32), dynamic=True)  # chatgpt told me to add dynamic
-# and to remove the following line
-#output_buffer.bind_to_storage_buffer(1)
+# ctx = mgl.create_standalone_context()
+# compute_shader = ctx.compute_shader(load_compute())
+# data_buffer = ctx.buffer(np.zeros(shape=(200 * 150, ), dtype=np.uint32))
+# data_buffer.bind_to_storage_buffer(0)
+# output_buffer = ctx.buffer(np.zeros(shape=(938, ), dtype=np.uint32), dynamic=True)  # chatgpt told me to add dynamic
+# # and to remove the following line
+# #output_buffer.bind_to_storage_buffer(1)
 
 
-@profile
-def compute_image_to_bitmap(img: pygame.Surface):
-	data = np.frombuffer(img.get_buffer().raw, dtype=np.uint32)
-	data_buffer.write(data)
-	output_buffer.write(np.zeros(shape=(938, ), dtype=np.uint32))
-	compute_shader.run(200, 150, 1)
-	result = output_buffer.read()
-	# warning : causes segfault
-	# yes, python segfault
-	#result = np.empty(shape=(938,), dtype=np.uint32)
-	#output_buffer.read_into(result)
-	integer_value = int.from_bytes(b''.join(struct.pack('<I', val) for val in result), byteorder='little')
-	return Bitmap(*img.get_size(), integer_value)
+# @profile
+# def compute_image_to_bitmap(img: pygame.Surface):
+# 	data = np.frombuffer(img.get_buffer().raw, dtype=np.uint32)
+# 	data_buffer.write(data)
+# 	output_buffer.write(np.zeros(shape=(938, ), dtype=np.uint32))
+# 	compute_shader.run(200, 150, 1)
+# 	result = output_buffer.read()
+# 	# warning : causes segfault
+# 	# yes, python segfault
+# 	#result = np.empty(shape=(938,), dtype=np.uint32)
+# 	#output_buffer.read_into(result)
+# 	integer_value = int.from_bytes(b''.join(struct.pack('<I', val) for val in result), byteorder='little')
+# 	return Bitmap(*img.get_size(), integer_value)
 
 
 class Bitmap:
