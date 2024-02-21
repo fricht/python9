@@ -37,6 +37,7 @@ class Game:
 		self.events = pygame.event.get()
 		# game things
 		self.font = pygame.font.Font('fonts/roboto/Roboto-Light.ttf', 120)
+		self.font_small = pygame.font.Font('fonts/roboto/Roboto-Light.ttf', 50)
 		self.bitmap = Bitmap(*WIN_SIZE)
 		self.draw_init_msg()
 		self.set_colors = (
@@ -54,10 +55,11 @@ class Game:
 		self.n = 0
 		self.target = 600
 		# 1 for text displaying
+		# 2 for star wars text
 		self.text = ''
 		self.txt_pos = pygame.Rect(0, 0, 0, 0)
 		self.txt_surf = pygame.Surface((0, 0))
-		# 2 for in game
+		# 3 for in game
 		self.game = MazeGame()
 
 	def draw_init_msg(self):
@@ -65,7 +67,7 @@ class Game:
 		surf = pygame.font.Font('fonts/roboto/Roboto-Light.ttf', 80).render('WAIT!', False, (255, 255, 255))
 		rect = surf.get_rect(center=img.get_rect().center)
 		img.blit(surf, rect)
-		self.bitmap.invert_mask(compute_image_to_bitmap(img))
+		self.bitmap.invert_mask(Bitmap.image_to_bitmap(img))
 
 	@property
 	def game_state(self):
@@ -81,7 +83,36 @@ class Game:
 			self.txt_surf = self.font.render(self.text, False, (255, 255, 255))
 			self.txt_pos = self.txt_surf.get_rect(topleft=(WIN_SIZE[0], 150 / 2 - self.txt_surf.get_height() / 2))
 		elif value == 2:
-			pass
+			self.text = self.wrapped_text()
+			self.txt_surf = self.multiline_render()
+			self.txt_pos = self.txt_surf.get_rect(topleft=(0, WIN_SIZE[1]))
+		elif value == 3:
+			raise NotImplementedError('Maze is not yet implemented')
+
+	def wrapped_text(self):
+		max_chars = 8
+		allow_multiples_words = False
+		text = ['']
+		for elem in self.text.split(' '):
+			if len(text[-1] + elem) < max_chars and allow_multiples_words:
+				text[-1] = text[-1] + ' ' + elem
+			else:
+				i = 0
+				while len(elem[i*max_chars::]) > max_chars:
+					text.append(elem[i*max_chars:i*max_chars+max_chars:] + '-')
+					i += 1
+				text.append(elem[i*max_chars:i*max_chars+max_chars:])
+		return '\n'.join(text)
+
+	def multiline_render(self):
+		img = pygame.Surface((0, 0))
+		for txt in self.text.split('\n'):
+			surf = self.font_small.render(txt, False, (255, 255, 255))
+			new_img = pygame.Surface((max(img.get_width(), surf.get_width()), img.get_height() + surf.get_height()))
+			new_img.blit(img, (0, 0))
+			new_img.blit(surf, (0, img.get_height()))
+			img = new_img
+		return img
 
 	@staticmethod
 	def load_vertex():
@@ -117,9 +148,17 @@ class Game:
 		if self.txt_pos.right < 0:
 			self.txt_pos.left = WIN_SIZE[0]
 
+	def star_wars_text(self):
+		img = pygame.Surface(WIN_SIZE)
+		img.blit(self.txt_surf, self.txt_pos)
+		self.bitmap.invert_mask(Bitmap.image_to_bitmap(img))
+		self.txt_pos.y -= 6
+		if self.txt_pos.bottom < 0:
+			self.txt_pos.top = WIN_SIZE[1]
+
 	def update(self):
 		# the update wrapper
-		[self.draw_random_line, self.draw_text][self.game_state]()
+		[self.draw_random_line, self.draw_text, self.star_wars_text][self.game_state]()
 
 	def draw(self):
 		self.program['bitmap'] = array(
@@ -141,7 +180,7 @@ class Game:
 				if event.type == pygame.KEYDOWN and event.key == pygame.K_c:
 					# cycles through colors
 					self.current_color = (self.current_color + 1) % len(self.set_colors)
-				if event.type == pygame.KEYDOWN and self.game_state == 1:
+				if event.type == pygame.KEYDOWN and self.game_state in {1, 2}:
 					if event.key == pygame.K_ESCAPE:
 						self.text = 'HARDER MAZE  press enter to play -- press h to get help'
 						self.game_state = 1
@@ -152,8 +191,13 @@ class Game:
 						self.target = 500
 						self.game_state = 0
 					elif event.key == pygame.K_e:
-						self.text = 'TODO : explain graphics'
-						self.game_state = 1
+						self.text = '''
+each time something is drawn on screen,
+the colors are inverted where there are colors.
+thisisaverylongword
+the movment gives the illusion of shapes
+'''
+						self.game_state = 2
 			self.update()
 			self.draw()
 			pygame.display.flip()
