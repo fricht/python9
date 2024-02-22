@@ -146,19 +146,25 @@ class Game:
 		self.bitmap = Bitmap(*WIN_SIZE)
 		self.draw_init_msg()
 		self.set_colors = (
-			(1.0, 1.0, 1.0),
-			(1.0, 0.0, 1.0)
+			(255, 255, 255),
+			(255, 0, 0),
+			(0, 97, 255),
+			(0, 126, 93),
+			(255, 223, 185),
 		)
 		self.unset_colors = (
-			(0.0, 0.0, 0.0),
-			(0.0, 1.0, 0.0)
+			(0, 0, 0),
+			(0, 0, 0),
+			(96, 239, 255),
+			(248, 200, 40),
+			(164, 25, 61),
 		)
 		self.current_color = 0
 		# the current game state
 		self._game_state = 0
 		# 0 for shuffling
 		self.n = 0
-		self.target = 600  # 600 here (decrease for faster debug)
+		self.target = 500  # 500 here (decrease for faster debug)
 		# 1 for text displaying
 		# 2 for star wars text
 		self.text = ''
@@ -215,9 +221,9 @@ class Game:
 			self.txt_pos = self.txt_surf.get_rect(topleft=(0, WIN_SIZE[1]))
 		elif value == 3:
 			self.key_buffer = []
-			self.pos = [-1, -1]
+			self.pos = [20, 20]
 			self.moves_count = 0
-			self.game = MazeGame(28, 25)
+			self.game = MazeGame(20, 20)
 
 	def wrapped_text(self):
 		max_chars = 8
@@ -261,6 +267,12 @@ class Game:
 
 	def draw_random_line(self):
 		img = pygame.Surface(WIN_SIZE)
+		pygame.draw.line(
+			img,
+			(255, 255, 255),
+			(random.randint(0, WIN_SIZE[0] - 1), random.randint(0, WIN_SIZE[1] - 1)),
+			(random.randint(0, WIN_SIZE[0] - 1), random.randint(0, WIN_SIZE[1] - 1))
+		)
 		pygame.draw.line(
 			img,
 			(255, 255, 255),

@@ -12,5 +12,5 @@ void main() {
     uint segment = bitmap[int(delta / 32)];
     uint data = (segment >> (delta % 32)) & 1u;
     float set_factor = float(data);
-    f_color = vec4(set_color * set_factor + unset_color * (1.0 - set_factor), 1.0);
+    f_color = vec4((set_color / 255.) * set_factor + (unset_color / 255.) * (1.0 - set_factor), 1.0);
 }
