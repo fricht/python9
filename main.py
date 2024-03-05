@@ -359,7 +359,7 @@ class Game:
 							self.text = 'HARDER MAZE  press enter to play -- press h to get help'
 							self.game_state = 1
 						elif event.key == pygame.K_h:
-							self.text = 'play with arrows <> escape tu return to menu <> enter = play <> h = help <> c = change colors <> s = shuffle screen <> e = explanations of the graphics <> x = best score'
+							self.text = 'play with arrows <> escape to return to menu <> enter = play <> h = help <> c = change colors <> s = shuffle screen <> e = explanations of the graphics <> x = best score'
 							self.game_state = 1
 						elif event.key == pygame.K_s:
 							self.target = 500
